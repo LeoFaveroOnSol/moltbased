@@ -262,7 +262,9 @@
         // === Supabase Setup ===
         const supabaseUrl = 'https://ornblatjrxuvqydeodbf.supabase.co';
         const supabaseKey = 'sb_publishable_u71_jmUZ1XtJjsepSwXhPw_P2iMi4H6';
-        const supabase = supabaseModule.createClient(supabaseUrl, supabaseKey);
+        // UMD bundle exposes as window.supabase
+        const sb = (window.supabase || window.supabaseModule || globalThis.supabase);
+        const supabase = sb.createClient(supabaseUrl, supabaseKey);
 
         // === State ===
         const LOCAL_USER_KEY = 'moltbook_user_session';
