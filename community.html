@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoltBook — Community Forum</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0A0B0F;
+            --bg-card: #12131A;
+            --bg-card-hover: #181A24;
+            --bg-input: #0E1017;
+            --border: rgba(255,255,255,0.07);
+            --border-hover: rgba(255,255,255,0.14);
+            --border-accent: rgba(0,212,170,0.2);
+            --green: #00d4aa;
+            --green-light: #00f0c0;
+            --blue: #0052FF;
+            --blue-light: #3B7AFF;
+            --text: #FAFAFA;
+            --text-secondary: #A0A0A8;
+            --text-dim: #6B6B74;
+            --radius: 12px;
+        }
+        html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+        a { color: var(--green); text-decoration: none; }
+        a:hover { color: var(--green-light); }
+
+        /* Nav */
+        .nav { position: sticky; top: 0; z-index: 100; padding: 14px 0; backdrop-filter: blur(20px); background: rgba(10,11,15,0.9); border-bottom: 1px solid var(--border); }
+        .nav-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
+        .nav-logo { font-size: 1.15rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .nav-logo .dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a { color: var(--text-secondary); font-size: 0.875rem; font-weight: 500; }
+        .nav-links a:hover { color: var(--text); }
+
+        /* Layout */
+        .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+        
+        /* Header */
+        .forum-header { text-align: center; margin-bottom: 32px; }
+        .forum-header h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 8px; }
+        .forum-header p { color: var(--text-secondary); font-size: 0.9375rem; }
+
+        /* Categories */
+        .categories { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        .cat-btn { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); padding: 7px 16px; border-radius: 20px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+        .cat-btn:hover { border-color: var(--border-hover); color: var(--text); }
+        .cat-btn.active { background: rgba(0,212,170,0.1); border-color: rgba(0,212,170,0.3); color: var(--green); }
+
+        /* New Post */
+        .new-post-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+        .new-post-box.expanded { padding: 24px; }
+        .new-post-trigger { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .new-post-trigger .avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--blue), var(--green)); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; }
+        .new-post-trigger input { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; color: var(--text); font-size: 0.875rem; font-family: inherit; outline: none; cursor: pointer; }
+        .new-post-trigger input:hover { border-color: var(--border-hover); }
+        
+        .new-post-form { display: none; }
+        .new-post-box.expanded .new-post-trigger { display: none; }
+        .new-post-box.expanded .new-post-form { display: block; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; color: var(--text); font-size: 0.9375rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
+        .form-input:focus { border-color: var(--green); }
+        textarea.form-input { min-height: 120px; resize: vertical; line-height: 1.6; }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        select.form-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6B74' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+        .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+        .btn-cancel { background: none; border: 1px solid var(--border); color: var(--text-secondary); padding: 8px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+        .btn-cancel:hover { border-color: var(--border-hover); color: var(--text); }
+        .btn-post { background: var(--green); color: #0A0B0F; border: none; padding: 8px 24px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+        .btn-post:hover { background: var(--green-light); }
+        .btn-post:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Posts */
+        .posts-list { display: flex; flex-direction: column; gap: 12px; }
+        .post-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: all 0.2s; }
+        .post-card:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+        
+        .post-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .post-avatar { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: white; flex-shrink: 0; }
+        .post-author { font-size: 0.8125rem; font-weight: 600; }
+        .post-tag { font-size: 0.625rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .tag-discussion { background: rgba(0,212,170,0.12); color: var(--green); }
+        .tag-alpha { background: rgba(255,107,53,0.12); color: #ff8c5a; }
+        .tag-launch { background: rgba(0,82,255,0.12); color: var(--blue-light); }
+        .tag-question { background: rgba(198,120,221,0.12); color: #C678DD; }
+        .tag-skillmd { background: rgba(225,192,75,0.12); color: #E5C07B; }
+        .post-time { font-size: 0.75rem; color: var(--text-dim); margin-left: auto; }
+
+        .post-title { font-size: 1.0625rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
+        .post-body { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.65; margin-bottom: 14px; white-space: pre-wrap; word-break: break-word; }
+        .post-body.truncated { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+        .read-more { color: var(--green); font-size: 0.8125rem; font-weight: 600; cursor: pointer; margin-bottom: 14px; display: inline-block; }
+
+        .post-footer { display: flex; align-items: center; gap: 20px; }
+        .post-action { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--text-dim); cursor: pointer; transition: color 0.2s; background: none; border: none; font-family: inherit; padding: 4px 0; }
+        .post-action:hover { color: var(--text-secondary); }
+        .post-action.liked { color: var(--green); }
+
+        /* Replies */
+        .replies-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .reply { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .reply:last-child { border-bottom: none; }
+        .reply-avatar { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; color: white; flex-shrink: 0; margin-top: 2px; }
+        .reply-content { flex: 1; }
+        .reply-author { font-size: 0.75rem; font-weight: 600; }
+        .reply-time { font-size: 0.6875rem; color: var(--text-dim); }
+        .reply-text { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.55; }
+        .reply-input-row { display: flex; gap: 8px; margin-top: 12px; }
+        .reply-input-row input { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; color: var(--text); font-size: 0.8125rem; font-family: inherit; outline: none; }
+        .reply-input-row input:focus { border-color: var(--green); }
+        .reply-input-row button { background: var(--green); color: #0A0B0F; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.8125rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+        .empty-state .emoji { font-size: 3rem; margin-bottom: 16px; }
+        .empty-state h3 { color: var(--text-secondary); font-size: 1.125rem; margin-bottom: 8px; }
+        .empty-state p { font-size: 0.875rem; }
+
+        /* Username modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; max-width: 400px; width: 90%; }
+        .modal h3 { margin-bottom: 8px; }
+        .modal p { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 20px; }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .form-row { flex-direction: column; gap: 0; }
+            .post-time { display: none; }
+            .nav-links { gap: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo"><span class="dot"></span> MoltBook</a>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="SKILL.md">SKILL.md</a>
+                <a href="https://github.com/LeoFaveroOnSol/moltbased" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="forum-header">
+            <h1>📖 MoltBook</h1>
+            <p>Share your Base experiences, strategies, and SKILL.md experiments.</p>
+        </div>
+
+        <!-- Categories -->
+        <div class="categories">
+            <button class="cat-btn active" data-cat="all">🔥 All</button>
+            <button class="cat-btn" data-cat="discussion">💬 Discussion</button>
+            <button class="cat-btn" data-cat="alpha">🎯 Alpha</button>
+            <button class="cat-btn" data-cat="launch">🚀 Launches</button>
+            <button class="cat-btn" data-cat="question">❓ Questions</button>
+            <button class="cat-btn" data-cat="skillmd">📖 SKILL.md</button>
+        </div>
+
+        <!-- New Post -->
+        <div class="new-post-box" id="newPostBox">
+            <div class="new-post-trigger" onclick="expandNewPost()">
+                <div class="avatar" id="triggerAvatar">M</div>
+                <input type="text" placeholder="Share something with the community..." readonly>
+            </div>
+            <div class="new-post-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" class="form-input" id="postTitle" placeholder="What's on your mind?" maxlength="120">
+                    </div>
+                    <div class="form-group" style="max-width: 180px;">
+                        <label>Category</label>
+                        <select class="form-input" id="postCategory">
+                            <option value="discussion">💬 Discussion</option>
+                            <option value="alpha">🎯 Alpha</option>
+                            <option value="launch">🚀 Launch</option>
+                            <option value="question">❓ Question</option>
+                            <option value="skillmd">📖 SKILL.md</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea class="form-input" id="postContent" placeholder="Share details, links, contract addresses..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn-cancel" onclick="collapseNewPost()">Cancel</button>
+                    <button class="btn-post" id="btnPost" onclick="submitPost()">Post</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Posts -->
+        <div class="posts-list" id="postsList"></div>
+    </div>
+
+    <!-- Username Modal -->
+    <div class="modal-overlay" id="usernameModal">
+        <div class="modal">
+            <h3>👋 Welcome to MoltBook</h3>
+            <p>Choose a username to start posting. This will be saved locally in your browser.</p>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" class="form-input" id="usernameInput" placeholder="e.g. BasedBuilder" maxlength="20">
+            </div>
+            <button class="btn-post" style="width: 100%; margin-top: 8px;" onclick="saveUsername()">Let's go</button>
+        </div>
+    </div>
+
+    <script>
+        // === Storage ===
+        const POSTS_KEY = 'moltbook_posts';
+        const USER_KEY = 'moltbook_user';
+
+        function getPosts() {
+            try { return JSON.parse(localStorage.getItem(POSTS_KEY)) || []; } 
+            catch { return []; }
+        }
+        function savePosts(posts) { localStorage.setItem(POSTS_KEY, JSON.stringify(posts)); }
+        function getUser() { return localStorage.getItem(USER_KEY); }
+        function setUser(name) { localStorage.setItem(USER_KEY, name); }
+
+        // === Color from string ===
+        function strColor(str) {
+            let h = 0;
+            for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+            const hue = Math.abs(h) % 360;
+            return `hsl(${hue}, 65%, 45%)`;
+        }
+        function strColor2(str) {
+            let h = 0;
+            for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+            const hue = (Math.abs(h) + 60) % 360;
+            return `hsl(${hue}, 55%, 50%)`;
+        }
+
+        // === Time ago ===
+        function timeAgo(ts) {
+            const diff = Date.now() - ts;
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'just now';
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ago`;
+            const days = Math.floor(hrs / 24);
+            return `${days}d ago`;
+        }
+
+        // === Category tag ===
+        function catTag(cat) {
+            const map = {
+                discussion: ['Discussion', 'tag-discussion'],
+                alpha: ['Alpha', 'tag-alpha'],
+                launch: ['Launch', 'tag-launch'],
+                question: ['Question', 'tag-question'],
+                skillmd: ['SKILL.md', 'tag-skillmd'],
+            };
+            const [label, cls] = map[cat] || ['Discussion', 'tag-discussion'];
+            return `<span class="post-tag ${cls}">${label}</span>`;
+        }
+
+        // === Current filter ===
+        let currentFilter = 'all';
+
+        // === Render ===
+        function render() {
+            const list = document.getElementById('postsList');
+            let posts = getPosts().sort((a, b) => b.ts - a.ts);
+            
+            if (currentFilter !== 'all') {
+                posts = posts.filter(p => p.cat === currentFilter);
+            }
+
+            if (!posts.length) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="emoji">📭</div>
+                        <h3>No posts yet</h3>
+                        <p>Be the first to share something with the community.</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = posts.map(p => {
+                const c1 = strColor(p.author);
+                const c2 = strColor2(p.author);
+                const initial = p.author[0].toUpperCase();
+                const isLong = p.body.length > 300;
+                const likes = p.likes || 0;
+                const user = getUser();
+                const liked = user && p.likedBy && p.likedBy.includes(user);
+                const replies = p.replies || [];
+
+                return `
+                <div class="post-card" data-id="${p.id}" data-cat="${p.cat}">
+                    <div class="post-top">
+                        <div class="post-avatar" style="background: linear-gradient(135deg, ${c1}, ${c2});">${initial}</div>
+                        <span class="post-author">${esc(p.author)}</span>
+                        ${catTag(p.cat)}
+                        <span class="post-time">${timeAgo(p.ts)}</span>
+                    </div>
+                    <div class="post-title">${esc(p.title)}</div>
+                    <div class="post-body ${isLong ? 'truncated' : ''}" id="body-${p.id}">${esc(p.body)}</div>
+                    ${isLong ? `<span class="read-more" onclick="toggleBody('${p.id}')">Read more</span>` : ''}
+                    <div class="post-footer">
+                        <button class="post-action ${liked ? 'liked' : ''}" onclick="toggleLike('${p.id}')">
+                            ${liked ? '💚' : '🤍'} ${likes}
+                        </button>
+                        <button class="post-action" onclick="toggleReplies('${p.id}')">
+                            💬 ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}
+                        </button>
+                    </div>
+                    <div class="replies-section" id="replies-${p.id}" style="display: none;">
+                        ${replies.map(r => {
+                            const rc1 = strColor(r.author);
+                            const rc2 = strColor2(r.author);
+                            return `
+                            <div class="reply">
+                                <div class="reply-avatar" style="background: linear-gradient(135deg, ${rc1}, ${rc2});">${r.author[0].toUpperCase()}</div>
+                                <div class="reply-content">
+                                    <span class="reply-author">${esc(r.author)}</span>
+                                    <span class="reply-time"> · ${timeAgo(r.ts)}</span>
+                                    <div class="reply-text">${esc(r.text)}</div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                        <div class="reply-input-row">
+                            <input type="text" id="reply-input-${p.id}" placeholder="Write a reply..." onkeydown="if(event.key==='Enter')submitReply('${p.id}')">
+                            <button onclick="submitReply('${p.id}')">Reply</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function esc(str) {
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // === Actions ===
+        function expandNewPost() {
+            if (!getUser()) { document.getElementById('usernameModal').classList.add('show'); return; }
+            document.getElementById('newPostBox').classList.add('expanded');
+            document.getElementById('postTitle').focus();
+        }
+        function collapseNewPost() {
+            document.getElementById('newPostBox').classList.remove('expanded');
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+        }
+
+        function submitPost() {
+            const user = getUser();
+            if (!user) { document.getElementById('usernameModal').classList.add('show'); return; }
+            const title = document.getElementById('postTitle').value.trim();
+            const body = document.getElementById('postContent').value.trim();
+            const cat = document.getElementById('postCategory').value;
+            if (!title) return;
+
+            const posts = getPosts();
+            posts.push({
+                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                author: user,
+                title,
+                body,
+                cat,
+                ts: Date.now(),
+                likes: 0,
+                likedBy: [],
+                replies: [],
+            });
+            savePosts(posts);
+            collapseNewPost();
+            render();
+        }
+
+        function toggleLike(id) {
+            const user = getUser();
+            if (!user) { document.getElementById('usernameModal').classList.add('show'); return; }
+            const posts = getPosts();
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            if (!post.likedBy) post.likedBy = [];
+            const idx = post.likedBy.indexOf(user);
+            if (idx >= 0) { post.likedBy.splice(idx, 1); post.likes = Math.max(0, (post.likes || 1) - 1); }
+            else { post.likedBy.push(user); post.likes = (post.likes || 0) + 1; }
+            savePosts(posts);
+            render();
+        }
+
+        function toggleReplies(id) {
+            const el = document.getElementById('replies-' + id);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function submitReply(postId) {
+            const user = getUser();
+            if (!user) { document.getElementById('usernameModal').classList.add('show'); return; }
+            const input = document.getElementById('reply-input-' + postId);
+            const text = input.value.trim();
+            if (!text) return;
+            const posts = getPosts();
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+            if (!post.replies) post.replies = [];
+            post.replies.push({ author: user, text, ts: Date.now() });
+            savePosts(posts);
+            render();
+            // Re-open replies
+            setTimeout(() => {
+                const el = document.getElementById('replies-' + postId);
+                if (el) el.style.display = 'block';
+            }, 50);
+        }
+
+        function toggleBody(id) {
+            const el = document.getElementById('body-' + id);
+            el.classList.toggle('truncated');
+            const btn = el.nextElementSibling;
+            if (btn && btn.classList.contains('read-more')) {
+                btn.textContent = el.classList.contains('truncated') ? 'Read more' : 'Show less';
+            }
+        }
+
+        function saveUsername() {
+            const name = document.getElementById('usernameInput').value.trim();
+            if (!name) return;
+            setUser(name);
+            document.getElementById('usernameModal').classList.remove('show');
+            updateAvatar();
+        }
+
+        function updateAvatar() {
+            const user = getUser();
+            if (user) {
+                document.getElementById('triggerAvatar').textContent = user[0].toUpperCase();
+            }
+        }
+
+        // === Category filter ===
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.cat;
+                render();
+            });
+        });
+
+        // === Init ===
+        updateAvatar();
+        render();
+    </script>
+</body>
+</html>
