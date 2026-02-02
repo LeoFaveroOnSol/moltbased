@@ -38,6 +38,8 @@
         .nav-links { display: flex; gap: 24px; align-items: center; }
         .nav-links a { color: var(--text-secondary); font-size: 0.875rem; font-weight: 500; }
         .nav-links a:hover { color: var(--text); }
+        .nav-user { color: var(--text-secondary); font-size: 0.875rem; display: flex; align-items: center; gap: 8px; }
+        .nav-user .status { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
 
         /* Layout */
         .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
@@ -80,6 +82,11 @@
         .btn-post:hover { background: var(--green-light); }
         .btn-post:disabled { opacity: 0.4; cursor: not-allowed; }
 
+        /* Loading state */
+        .loading { opacity: 0.6; pointer-events: none; }
+        .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top: 2px solid var(--green); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         /* Posts */
         .posts-list { display: flex; flex-direction: column; gap: 12px; }
         .post-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: all 0.2s; }
@@ -105,6 +112,7 @@
         .post-action { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--text-dim); cursor: pointer; transition: color 0.2s; background: none; border: none; font-family: inherit; padding: 4px 0; }
         .post-action:hover { color: var(--text-secondary); }
         .post-action.liked { color: var(--green); }
+        .post-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Replies */
         .replies-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
@@ -126,6 +134,10 @@
         .empty-state h3 { color: var(--text-secondary); font-size: 1.125rem; margin-bottom: 8px; }
         .empty-state p { font-size: 0.875rem; }
 
+        /* Error state */
+        .error-state { text-align: center; padding: 40px 20px; color: #ff6b6b; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: var(--radius); margin-bottom: 24px; }
+        .error-state .emoji { font-size: 2rem; margin-bottom: 8px; }
+
         /* Username modal */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
         .modal-overlay.show { display: flex; }
@@ -138,6 +150,7 @@
             .form-row { flex-direction: column; gap: 0; }
             .post-time { display: none; }
             .nav-links { gap: 16px; }
+            .nav-user { display: none; }
         }
     </style>
 </head>
@@ -149,6 +162,10 @@
                 <a href="index.html">Home</a>
                 <a href="SKILL.md">SKILL.md</a>
                 <a href="https://github.com/LeoFaveroOnSol/moltbased" target="_blank">GitHub</a>
+                <div class="nav-user" id="navUser" style="display: none;">
+                    <span class="status"></span>
+                    <span id="navUsername">Guest</span>
+                </div>
             </div>
         </div>
     </div>
@@ -157,6 +174,12 @@
         <div class="forum-header">
             <h1>📖 MoltBook</h1>
             <p>Share your Base experiences, strategies, and SKILL.md experiments.</p>
+        </div>
+
+        <!-- Error state -->
+        <div class="error-state" id="errorState" style="display: none;">
+            <div class="emoji">⚠️</div>
+            <div id="errorMessage">Something went wrong. Please try again.</div>
         </div>
 
         <!-- Categories -->
@@ -172,14 +195,14 @@
         <!-- New Post -->
         <div class="new-post-box" id="newPostBox">
             <div class="new-post-trigger" onclick="expandNewPost()">
-                <div class="avatar" id="triggerAvatar">M</div>
+                <div class="avatar" id="triggerAvatar">G</div>
                 <input type="text" placeholder="Share something with the community..." readonly>
             </div>
             <div class="new-post-form">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Title</label>
-                        <input type="text" class="form-input" id="postTitle" placeholder="What's on your mind?" maxlength="120">
+                        <input type="text" class="form-input" id="postTitle" placeholder="What's on your mind?" maxlength="200">
                     </div>
                     <div class="form-group" style="max-width: 180px;">
                         <label>Category</label>
@@ -204,63 +227,125 @@
         </div>
 
         <!-- Posts -->
-        <div class="posts-list" id="postsList"></div>
+        <div class="posts-list" id="postsList">
+            <div class="loading" style="text-align: center; padding: 40px;">
+                <div class="spinner"></div>
+                <p style="margin-top: 12px; color: var(--text-dim);">Loading posts...</p>
+            </div>
+        </div>
+
+        <!-- Load More -->
+        <div style="text-align: center; margin-top: 24px;">
+            <button class="btn-cancel" id="loadMoreBtn" onclick="loadMorePosts()" style="display: none;">
+                Load More Posts
+            </button>
+        </div>
     </div>
 
     <!-- Username Modal -->
     <div class="modal-overlay" id="usernameModal">
         <div class="modal">
             <h3>👋 Welcome to MoltBook</h3>
-            <p>Choose a username to start posting. This will be saved locally in your browser.</p>
+            <p>Choose a username to start posting. This will create your account in our community.</p>
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" class="form-input" id="usernameInput" placeholder="e.g. BasedBuilder" maxlength="20">
+                <input type="text" class="form-input" id="usernameInput" placeholder="e.g. BasedBuilder" maxlength="50" pattern="[a-zA-Z0-9_-]+" title="Only letters, numbers, underscores and hyphens allowed">
+                <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">Only letters, numbers, _ and - allowed</p>
             </div>
-            <button class="btn-post" style="width: 100%; margin-top: 8px;" onclick="saveUsername()">Let's go</button>
+            <button class="btn-post" id="btnSaveUsername" style="width: 100%; margin-top: 8px;" onclick="saveUsername()">Let's go</button>
         </div>
     </div>
 
+    <!-- Supabase JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script>
-        // === Storage ===
-        const POSTS_KEY = 'moltbook_posts';
-        const USER_KEY = 'moltbook_user';
+        // === Supabase Setup ===
+        const supabaseUrl = 'https://mmdqkxaqgabsrhcccepf.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tZHFreGFxZ2Fic3JoY2NjZXBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1NDAzODYsImV4cCI6MjA4MzExNjM4Nn0.JbsoymZdAQrbtz-Zu7GEK8ZVXcNNdWXWjTfKZ0IaDeE';
+        const supabase = supabaseModule.createClient(supabaseUrl, supabaseKey);
 
-        function getPosts() {
-            try { return JSON.parse(localStorage.getItem(POSTS_KEY)) || []; } 
-            catch { return []; }
+        // === State ===
+        const LOCAL_USER_KEY = 'moltbook_user_session';
+        let currentUser = null;
+        let currentFilter = 'all';
+        let postsOffset = 0;
+        const postsLimit = 10;
+        let isLoading = false;
+        let hasMorePosts = true;
+        let allPosts = [];
+
+        // Rate limiting for posts
+        let lastPostTime = 0;
+        const POST_COOLDOWN = 5000; // 5 seconds
+
+        // === Utility Functions ===
+        function showError(message) {
+            const errorState = document.getElementById('errorState');
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorState.style.display = 'block';
+            setTimeout(() => {
+                errorState.style.display = 'none';
+            }, 5000);
         }
-        function savePosts(posts) { localStorage.setItem(POSTS_KEY, JSON.stringify(posts)); }
-        function getUser() { return localStorage.getItem(USER_KEY); }
-        function setUser(name) { localStorage.setItem(USER_KEY, name); }
 
-        // === Color from string ===
+        function sanitizeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function validateUsername(username) {
+            const regex = /^[a-zA-Z0-9_-]+$/;
+            return regex.test(username) && username.length >= 2 && username.length <= 50;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // === Color generation (deterministic from username) ===
         function strColor(str) {
-            let h = 0;
-            for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-            const hue = Math.abs(h) % 360;
-            return `hsl(${hue}, 65%, 45%)`;
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash) % 360;
+            return `hsl(${hue}, 65%, 50%)`;
         }
+
         function strColor2(str) {
-            let h = 0;
-            for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-            const hue = (Math.abs(h) + 60) % 360;
-            return `hsl(${hue}, 55%, 50%)`;
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = (Math.abs(hash) + 120) % 360;
+            return `hsl(${hue}, 55%, 55%)`;
         }
 
-        // === Time ago ===
-        function timeAgo(ts) {
-            const diff = Date.now() - ts;
-            const mins = Math.floor(diff / 60000);
-            if (mins < 1) return 'just now';
-            if (mins < 60) return `${mins}m ago`;
-            const hrs = Math.floor(mins / 60);
-            if (hrs < 24) return `${hrs}h ago`;
-            const days = Math.floor(hrs / 24);
-            return `${days}d ago`;
+        // === Time formatting ===
+        function timeAgo(timestamp) {
+            const diff = Date.now() - new Date(timestamp).getTime();
+            const minutes = Math.floor(diff / 60000);
+            if (minutes < 1) return 'just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            if (days < 30) return `${days}d ago`;
+            return new Date(timestamp).toLocaleDateString();
         }
 
-        // === Category tag ===
-        function catTag(cat) {
+        // === Category helpers ===
+        function categoryTag(category) {
             const map = {
                 discussion: ['Discussion', 'tag-discussion'],
                 alpha: ['Alpha', 'tag-alpha'],
@@ -268,203 +353,516 @@
                 question: ['Question', 'tag-question'],
                 skillmd: ['SKILL.md', 'tag-skillmd'],
             };
-            const [label, cls] = map[cat] || ['Discussion', 'tag-discussion'];
-            return `<span class="post-tag ${cls}">${label}</span>`;
+            const [label, className] = map[category] || ['Discussion', 'tag-discussion'];
+            return `<span class="post-tag ${className}">${label}</span>`;
         }
 
-        // === Current filter ===
-        let currentFilter = 'all';
-
-        // === Render ===
-        function render() {
-            const list = document.getElementById('postsList');
-            let posts = getPosts().sort((a, b) => b.ts - a.ts);
-            
-            if (currentFilter !== 'all') {
-                posts = posts.filter(p => p.cat === currentFilter);
+        // === User Management ===
+        function getLocalUser() {
+            try {
+                return JSON.parse(localStorage.getItem(LOCAL_USER_KEY));
+            } catch {
+                return null;
             }
+        }
 
-            if (!posts.length) {
-                list.innerHTML = `
+        function setLocalUser(user) {
+            localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(user));
+        }
+
+        function clearLocalUser() {
+            localStorage.removeItem(LOCAL_USER_KEY);
+        }
+
+        async function createUser(username) {
+            try {
+                // Check if username already exists
+                const { data: existing } = await supabase
+                    .from('moltbook_users')
+                    .select('id')
+                    .eq('username', username)
+                    .single();
+
+                if (existing) {
+                    throw new Error('Username already taken');
+                }
+
+                const { data, error } = await supabase
+                    .from('moltbook_users')
+                    .insert([{
+                        username: username,
+                        display_color: strColor(username)
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return data;
+            } catch (error) {
+                console.error('Error creating user:', error);
+                throw error;
+            }
+        }
+
+        async function loginUser(username) {
+            try {
+                const { data, error } = await supabase
+                    .from('moltbook_users')
+                    .select('*')
+                    .eq('username', username)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+                
+                if (!data) {
+                    // Create new user
+                    return await createUser(username);
+                } else {
+                    // Update last_seen
+                    await supabase
+                        .from('moltbook_users')
+                        .update({ last_seen: new Date().toISOString() })
+                        .eq('id', data.id);
+                    return data;
+                }
+            } catch (error) {
+                console.error('Error logging in user:', error);
+                throw error;
+            }
+        }
+
+        // === Post Management ===
+        async function loadPosts(reset = false) {
+            if (isLoading) return;
+            isLoading = true;
+
+            try {
+                if (reset) {
+                    postsOffset = 0;
+                    hasMorePosts = true;
+                    allPosts = [];
+                }
+
+                let query = supabase
+                    .from('moltbook_posts_view')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .range(postsOffset, postsOffset + postsLimit - 1);
+
+                if (currentFilter !== 'all') {
+                    query = query.eq('category', currentFilter);
+                }
+
+                const { data: posts, error } = await query;
+
+                if (error) throw error;
+
+                if (reset) {
+                    allPosts = posts || [];
+                } else {
+                    allPosts = [...allPosts, ...(posts || [])];
+                }
+
+                hasMorePosts = posts && posts.length === postsLimit;
+                postsOffset += postsLimit;
+
+                await renderPosts();
+            } catch (error) {
+                console.error('Error loading posts:', error);
+                showError('Failed to load posts. Please try again.');
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        async function loadReplies(postId) {
+            try {
+                const { data: replies, error } = await supabase
+                    .from('moltbook_replies_view')
+                    .select('*')
+                    .eq('post_id', postId)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+                return replies || [];
+            } catch (error) {
+                console.error('Error loading replies:', error);
+                return [];
+            }
+        }
+
+        async function checkUserLiked(postId, userId) {
+            if (!userId) return false;
+            
+            try {
+                const { data, error } = await supabase
+                    .from('moltbook_likes')
+                    .select('id')
+                    .eq('post_id', postId)
+                    .eq('user_id', userId)
+                    .single();
+
+                return !!data;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        async function renderPosts() {
+            const postsList = document.getElementById('postsList');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+            if (!allPosts.length) {
+                postsList.innerHTML = `
                     <div class="empty-state">
                         <div class="emoji">📭</div>
                         <h3>No posts yet</h3>
                         <p>Be the first to share something with the community.</p>
                     </div>`;
+                loadMoreBtn.style.display = 'none';
                 return;
             }
 
-            list.innerHTML = posts.map(p => {
-                const c1 = strColor(p.author);
-                const c2 = strColor2(p.author);
-                const initial = p.author[0].toUpperCase();
-                const isLong = p.body.length > 300;
-                const likes = p.likes || 0;
-                const user = getUser();
-                const liked = user && p.likedBy && p.likedBy.includes(user);
-                const replies = p.replies || [];
+            // Check likes for current user
+            const postsWithLikes = await Promise.all(allPosts.map(async (post) => ({
+                ...post,
+                user_liked: currentUser ? await checkUserLiked(post.id, currentUser.id) : false
+            })));
+
+            postsList.innerHTML = postsWithLikes.map(post => {
+                const color1 = strColor(post.username);
+                const color2 = strColor2(post.username);
+                const initial = post.username[0].toUpperCase();
+                const isLong = post.body && post.body.length > 300;
 
                 return `
-                <div class="post-card" data-id="${p.id}" data-cat="${p.cat}">
+                <div class="post-card" data-id="${post.id}" data-cat="${post.category}">
                     <div class="post-top">
-                        <div class="post-avatar" style="background: linear-gradient(135deg, ${c1}, ${c2});">${initial}</div>
-                        <span class="post-author">${esc(p.author)}</span>
-                        ${catTag(p.cat)}
-                        <span class="post-time">${timeAgo(p.ts)}</span>
+                        <div class="post-avatar" style="background: linear-gradient(135deg, ${color1}, ${color2});">${initial}</div>
+                        <span class="post-author">${sanitizeHTML(post.username)}</span>
+                        ${categoryTag(post.category)}
+                        <span class="post-time">${timeAgo(post.created_at)}</span>
                     </div>
-                    <div class="post-title">${esc(p.title)}</div>
-                    <div class="post-body ${isLong ? 'truncated' : ''}" id="body-${p.id}">${esc(p.body)}</div>
-                    ${isLong ? `<span class="read-more" onclick="toggleBody('${p.id}')">Read more</span>` : ''}
+                    <div class="post-title">${sanitizeHTML(post.title)}</div>
+                    ${post.body ? `
+                        <div class="post-body ${isLong ? 'truncated' : ''}" id="body-${post.id}">${sanitizeHTML(post.body)}</div>
+                        ${isLong ? `<span class="read-more" onclick="toggleBody('${post.id}')">Read more</span>` : ''}
+                    ` : ''}
                     <div class="post-footer">
-                        <button class="post-action ${liked ? 'liked' : ''}" onclick="toggleLike('${p.id}')">
-                            ${liked ? '💚' : '🤍'} ${likes}
+                        <button class="post-action ${post.user_liked ? 'liked' : ''}" onclick="toggleLike('${post.id}')" ${!currentUser ? 'disabled' : ''}>
+                            ${post.user_liked ? '💚' : '🤍'} ${post.likes_count || 0}
                         </button>
-                        <button class="post-action" onclick="toggleReplies('${p.id}')">
-                            💬 ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}
+                        <button class="post-action" onclick="toggleReplies('${post.id}')">
+                            💬 ${post.reply_count || 0} ${(post.reply_count || 0) === 1 ? 'reply' : 'replies'}
                         </button>
                     </div>
-                    <div class="replies-section" id="replies-${p.id}" style="display: none;">
-                        ${replies.map(r => {
-                            const rc1 = strColor(r.author);
-                            const rc2 = strColor2(r.author);
-                            return `
-                            <div class="reply">
-                                <div class="reply-avatar" style="background: linear-gradient(135deg, ${rc1}, ${rc2});">${r.author[0].toUpperCase()}</div>
-                                <div class="reply-content">
-                                    <span class="reply-author">${esc(r.author)}</span>
-                                    <span class="reply-time"> · ${timeAgo(r.ts)}</span>
-                                    <div class="reply-text">${esc(r.text)}</div>
-                                </div>
-                            </div>`;
-                        }).join('')}
-                        <div class="reply-input-row">
-                            <input type="text" id="reply-input-${p.id}" placeholder="Write a reply..." onkeydown="if(event.key==='Enter')submitReply('${p.id}')">
-                            <button onclick="submitReply('${p.id}')">Reply</button>
-                        </div>
+                    <div class="replies-section" id="replies-${post.id}" style="display: none;">
+                        <!-- Replies will be loaded here -->
                     </div>
                 </div>`;
             }).join('');
+
+            loadMoreBtn.style.display = hasMorePosts ? 'block' : 'none';
         }
 
-        function esc(str) {
-            const d = document.createElement('div');
-            d.textContent = str;
-            return d.innerHTML;
+        // === Post Actions ===
+        async function submitPost() {
+            if (!currentUser) {
+                document.getElementById('usernameModal').classList.add('show');
+                return;
+            }
+
+            const now = Date.now();
+            if (now - lastPostTime < POST_COOLDOWN) {
+                showError(`Please wait ${Math.ceil((POST_COOLDOWN - (now - lastPostTime)) / 1000)} seconds before posting again.`);
+                return;
+            }
+
+            const title = document.getElementById('postTitle').value.trim();
+            const body = document.getElementById('postContent').value.trim();
+            const category = document.getElementById('postCategory').value;
+
+            if (!title) {
+                showError('Please enter a title for your post.');
+                return;
+            }
+
+            const btnPost = document.getElementById('btnPost');
+            btnPost.disabled = true;
+            btnPost.innerHTML = '<div class="spinner"></div>';
+
+            try {
+                const { data, error } = await supabase
+                    .from('moltbook_posts')
+                    .insert([{
+                        user_id: currentUser.id,
+                        title: title,
+                        body: body,
+                        category: category
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                lastPostTime = Date.now();
+                collapseNewPost();
+                await loadPosts(true);
+                showSuccess('Post created successfully!');
+            } catch (error) {
+                console.error('Error creating post:', error);
+                showError('Failed to create post. Please try again.');
+            } finally {
+                btnPost.disabled = false;
+                btnPost.innerHTML = 'Post';
+            }
         }
 
-        // === Actions ===
+        async function toggleLike(postId) {
+            if (!currentUser) {
+                document.getElementById('usernameModal').classList.add('show');
+                return;
+            }
+
+            try {
+                // Check if already liked
+                const { data: existing } = await supabase
+                    .from('moltbook_likes')
+                    .select('id')
+                    .eq('post_id', postId)
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (existing) {
+                    // Unlike
+                    const { error } = await supabase
+                        .from('moltbook_likes')
+                        .delete()
+                        .eq('id', existing.id);
+
+                    if (error) throw error;
+                } else {
+                    // Like
+                    const { error } = await supabase
+                        .from('moltbook_likes')
+                        .insert([{
+                            post_id: postId,
+                            user_id: currentUser.id
+                        }]);
+
+                    if (error) throw error;
+                }
+
+                // Refresh posts to update counts
+                await loadPosts(true);
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                showError('Failed to update like. Please try again.');
+            }
+        }
+
+        async function toggleReplies(postId) {
+            const repliesSection = document.getElementById(`replies-${postId}`);
+            
+            if (repliesSection.style.display === 'none') {
+                // Load and show replies
+                repliesSection.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div></div>';
+                repliesSection.style.display = 'block';
+
+                const replies = await loadReplies(postId);
+                
+                repliesSection.innerHTML = `
+                    ${replies.map(reply => {
+                        const color1 = strColor(reply.username);
+                        const color2 = strColor2(reply.username);
+                        return `
+                        <div class="reply">
+                            <div class="reply-avatar" style="background: linear-gradient(135deg, ${color1}, ${color2});">${reply.username[0].toUpperCase()}</div>
+                            <div class="reply-content">
+                                <span class="reply-author">${sanitizeHTML(reply.username)}</span>
+                                <span class="reply-time"> · ${timeAgo(reply.created_at)}</span>
+                                <div class="reply-text">${sanitizeHTML(reply.body)}</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    <div class="reply-input-row">
+                        <input type="text" id="reply-input-${postId}" placeholder="Write a reply..." onkeydown="if(event.key==='Enter')submitReply('${postId}')" ${!currentUser ? 'disabled' : ''}>
+                        <button onclick="submitReply('${postId}')" ${!currentUser ? 'disabled' : ''}>Reply</button>
+                    </div>
+                `;
+            } else {
+                // Hide replies
+                repliesSection.style.display = 'none';
+            }
+        }
+
+        async function submitReply(postId) {
+            if (!currentUser) {
+                document.getElementById('usernameModal').classList.add('show');
+                return;
+            }
+
+            const input = document.getElementById(`reply-input-${postId}`);
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            const originalValue = input.value;
+            input.disabled = true;
+            input.value = 'Posting...';
+
+            try {
+                const { error } = await supabase
+                    .from('moltbook_replies')
+                    .insert([{
+                        post_id: postId,
+                        user_id: currentUser.id,
+                        body: text
+                    }]);
+
+                if (error) throw error;
+
+                input.value = '';
+                // Refresh replies
+                await toggleReplies(postId);
+                await toggleReplies(postId);
+                // Also refresh posts to update reply counts
+                await loadPosts(true);
+            } catch (error) {
+                console.error('Error creating reply:', error);
+                showError('Failed to post reply. Please try again.');
+                input.value = originalValue;
+            } finally {
+                input.disabled = false;
+            }
+        }
+
+        // === UI Helpers ===
         function expandNewPost() {
-            if (!getUser()) { document.getElementById('usernameModal').classList.add('show'); return; }
+            if (!currentUser) {
+                document.getElementById('usernameModal').classList.add('show');
+                return;
+            }
             document.getElementById('newPostBox').classList.add('expanded');
             document.getElementById('postTitle').focus();
         }
+
         function collapseNewPost() {
             document.getElementById('newPostBox').classList.remove('expanded');
             document.getElementById('postTitle').value = '';
             document.getElementById('postContent').value = '';
         }
 
-        function submitPost() {
-            const user = getUser();
-            if (!user) { document.getElementById('usernameModal').classList.add('show'); return; }
-            const title = document.getElementById('postTitle').value.trim();
-            const body = document.getElementById('postContent').value.trim();
-            const cat = document.getElementById('postCategory').value;
-            if (!title) return;
-
-            const posts = getPosts();
-            posts.push({
-                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-                author: user,
-                title,
-                body,
-                cat,
-                ts: Date.now(),
-                likes: 0,
-                likedBy: [],
-                replies: [],
-            });
-            savePosts(posts);
-            collapseNewPost();
-            render();
-        }
-
-        function toggleLike(id) {
-            const user = getUser();
-            if (!user) { document.getElementById('usernameModal').classList.add('show'); return; }
-            const posts = getPosts();
-            const post = posts.find(p => p.id === id);
-            if (!post) return;
-            if (!post.likedBy) post.likedBy = [];
-            const idx = post.likedBy.indexOf(user);
-            if (idx >= 0) { post.likedBy.splice(idx, 1); post.likes = Math.max(0, (post.likes || 1) - 1); }
-            else { post.likedBy.push(user); post.likes = (post.likes || 0) + 1; }
-            savePosts(posts);
-            render();
-        }
-
-        function toggleReplies(id) {
-            const el = document.getElementById('replies-' + id);
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function submitReply(postId) {
-            const user = getUser();
-            if (!user) { document.getElementById('usernameModal').classList.add('show'); return; }
-            const input = document.getElementById('reply-input-' + postId);
-            const text = input.value.trim();
-            if (!text) return;
-            const posts = getPosts();
-            const post = posts.find(p => p.id === postId);
-            if (!post) return;
-            if (!post.replies) post.replies = [];
-            post.replies.push({ author: user, text, ts: Date.now() });
-            savePosts(posts);
-            render();
-            // Re-open replies
-            setTimeout(() => {
-                const el = document.getElementById('replies-' + postId);
-                if (el) el.style.display = 'block';
-            }, 50);
-        }
-
-        function toggleBody(id) {
-            const el = document.getElementById('body-' + id);
-            el.classList.toggle('truncated');
-            const btn = el.nextElementSibling;
-            if (btn && btn.classList.contains('read-more')) {
-                btn.textContent = el.classList.contains('truncated') ? 'Read more' : 'Show less';
+        function toggleBody(postId) {
+            const bodyEl = document.getElementById(`body-${postId}`);
+            const readMoreEl = bodyEl.nextElementSibling;
+            
+            bodyEl.classList.toggle('truncated');
+            if (readMoreEl && readMoreEl.classList.contains('read-more')) {
+                readMoreEl.textContent = bodyEl.classList.contains('truncated') ? 'Read more' : 'Show less';
             }
         }
 
-        function saveUsername() {
-            const name = document.getElementById('usernameInput').value.trim();
-            if (!name) return;
-            setUser(name);
-            document.getElementById('usernameModal').classList.remove('show');
-            updateAvatar();
-        }
+        async function saveUsername() {
+            const username = document.getElementById('usernameInput').value.trim();
+            
+            if (!validateUsername(username)) {
+                showError('Username must be 2-50 characters and contain only letters, numbers, underscores, and hyphens.');
+                return;
+            }
 
-        function updateAvatar() {
-            const user = getUser();
-            if (user) {
-                document.getElementById('triggerAvatar').textContent = user[0].toUpperCase();
+            const btnSave = document.getElementById('btnSaveUsername');
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<div class="spinner"></div>';
+
+            try {
+                const user = await loginUser(username);
+                currentUser = user;
+                setLocalUser(user);
+                
+                document.getElementById('usernameModal').classList.remove('show');
+                updateUI();
+                await loadPosts(true);
+            } catch (error) {
+                console.error('Error saving username:', error);
+                if (error.message === 'Username already taken') {
+                    showError('Username already taken. Please choose another one.');
+                } else {
+                    showError('Failed to save username. Please try again.');
+                }
+            } finally {
+                btnSave.disabled = false;
+                btnSave.innerHTML = "Let's go";
             }
         }
 
-        // === Category filter ===
+        function loadMorePosts() {
+            loadPosts(false);
+        }
+
+        function updateUI() {
+            const triggerAvatar = document.getElementById('triggerAvatar');
+            const navUser = document.getElementById('navUser');
+            const navUsername = document.getElementById('navUsername');
+
+            if (currentUser) {
+                triggerAvatar.textContent = currentUser.username[0].toUpperCase();
+                navUsername.textContent = currentUser.username;
+                navUser.style.display = 'flex';
+            } else {
+                triggerAvatar.textContent = 'G';
+                navUser.style.display = 'none';
+            }
+        }
+
+        function showSuccess(message) {
+            // Simple success feedback - you can enhance this
+            console.log('Success:', message);
+        }
+
+        // === Category Filtering ===
         document.querySelectorAll('.cat-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentFilter = btn.dataset.cat;
-                render();
+                loadPosts(true);
             });
         });
 
-        // === Init ===
-        updateAvatar();
-        render();
+        // === Debounced search (future enhancement) ===
+        const debouncedSearch = debounce((query) => {
+            // Implementation for search functionality
+            console.log('Search:', query);
+        }, 300);
+
+        // === Initialization ===
+        async function init() {
+            try {
+                // Load user from localStorage
+                const localUser = getLocalUser();
+                if (localUser) {
+                    // Validate user still exists and update last_seen
+                    try {
+                        const user = await loginUser(localUser.username);
+                        currentUser = user;
+                        setLocalUser(user);
+                    } catch (error) {
+                        console.warn('Failed to revalidate user, clearing session');
+                        clearLocalUser();
+                    }
+                }
+
+                updateUI();
+                await loadPosts(true);
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to initialize app. Please refresh the page.');
+            }
+        }
+
+        // Start the app
+        init();
     </script>
 </body>
 </html>
